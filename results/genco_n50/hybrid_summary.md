@@ -1,3 +1,9 @@
+| Method | Line-flow gain [min–max] | median per-line ΔP ratio at ±1 % [p10–p90] |
+|---|---|---|
+| GENCO | 0.7615 [0.6036–0.8869] | 0.824 [0.687–0.923] |
+| GENCO + 1 NR step | 0.9999 [0.9940–1.0011] | 1.000 [1.000–1.000] |
+| GENCO + 2 NR steps | 1.0000 [1.0000–1.0000] | 1.000 [1.000–1.000] |
+
 | Method | Vm gain | Va gain [min–max] | max |Vm err| [p.u.] | max |Va err| [rad] | mean |ΔP| [MW] | max |ΔP| [MW] |
 |---|---|---|---|---|---|---|
 | GENCO | 0.7857 | 0.7177 [0.5855–0.8567] | 2.4e-02 | 7.5e-02 | 1.3e-01 | 6.5e+00 |

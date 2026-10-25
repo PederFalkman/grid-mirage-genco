@@ -18,17 +18,23 @@ Pretrained GENCO PF checkpoint `gridfm/genco-pf-datakit` · `case118_ieee/base/s
    | Va response (non-slack buses) | **0.718** | [0.701, 0.735] | 0.617–0.823 | 0.587–0.843 | 50 / 50 |
    | Slack ΔPg, GENCO / reference | **0.800** | [0.786, 0.814] | 0.729–0.885 | 0.646–0.903 | 50 / 50 |
 
-   The slack ratio is independent of the load step: 0.795 at −1 %, 0.800 at −0.1 %, 0.801 at +0.1 %, 0.805 at +1 %. So this is a linearized sensitivity bias, not an extrapolation artifact, and it is symmetric in sign. No scenario reaches the physical response. The pilot, with 8 *different* test scenarios, gave 0.785 / 0.696 / 0.774, inside the same ranges.
+   The slack ratio is independent of the load step: 0.795 at −1 %, 0.800 at −0.1 %, 0.801 at +0.1 %, 0.805 at +1 %. So this is a linearized sensitivity bias, not an extrapolation artifact, and it is symmetric in sign. Line active-power flows respond with gain **0.762** (95 % CI 0.746–0.777, range 0.61–0.88). For lines whose true flow moves by more than 0.5 MW, the median line moves only 0.82× as far, and in a typical scenario at least 90 % of these lines move too little. No scenario reaches the physical response. The pilot, with 8 *different* test scenarios, gave 0.785 / 0.696 / 0.774, inside the same ranges.
 3. **Physics Lens: power-balance error grows away from the dataset operating point.** Mean |ΔP| at PQ+PV buses at δ = 0 is **0.125 MW** (median over scenarios 0.095, 95 % CI of the mean [0.096, 0.163]). That interval contains the checkpoint's published test-set metric `Avg. active res. 0.106 MW`, which independently confirms that the pipeline reproduces the official evaluation. The mean rises to 0.137 MW at +1 % and 0.145 MW at −1 %. Mean |ΔQ| at PQ buses is 0.026 Mvar. The per-scenario maximum |ΔP| has median 0.36 MW and a heavy tail (one scenario reaches 6.0 MW). The AC reference residual is ≤ 6e-14 MW in every case.
 
 4. **Hybrid fix: one Newton–Raphson step from GENCO restores exact physics.** Warm-starting a single AC Newton–Raphson step from GENCO's predicted voltages (same 50 scenarios × 7 load levels) gives:
-   - response gain 0.786 → **0.9996** (Vm) and 0.718 → **0.9998** (Va, range 0.991–1.001);
+   - response gain 0.786 → **0.9996** (Vm), 0.718 → **0.9998** (Va, range 0.991–1.001) and 0.762 → **0.9999** (line flows);
    - mean power-balance residual 0.13 MW → **6.3e-4 MW** (≈200× lower; max 6.5 → 0.49 MW);
    - with two steps, gain 1.0000 and residual 1e-7 MW.
 
    As an initializer, GENCO cuts full Newton–Raphson iterations to 1e-8 p.u. from 4.0 (flat start) to **2.1** on average (max 3). GENCO plus one physics step therefore gives physically exact sensitivities at the cost of a single linear solve. The same metamorphic test that exposed the bias certifies the fix (`src/hybrid_mirage.py`, `results/genco_n50/hybrid_summary.md`).
 
 **Interpretation.** GENCO "sees through" the representational mirage: relabeling does not change its answer beyond float32 round-off. Its weakness is not representational but physical sensitivity. For a small, valid, physically consistent change in demand, it moves the state only about 72–80 % as far as the physics does, in every scenario tested. For uses that depend on sensitivities (what-if, contingency or load-growth screening), this bias matters more than its point accuracy suggests. The bias is cheap to remove: GENCO is an excellent *initializer*, and one Newton–Raphson step on top of it restores the physical response and power balance. That suggests a practical workflow: GENCO for speed, one physics step for trustworthy sensitivities, and Butterfly as the acceptance test.
+
+## 1b. Relation to other challenge entries
+
+* [GENCO-PTDF (#2)](https://huggingface.co/spaces/gridfm/genco-challenge/discussions/2) reports AC-PTDF sensitivity errors of about 10 % for the released IEEE 118 checkpoint and reduces them by response-supervised fine-tuning. Butterfly is complementary: it measures the *direction* of the sensitivity error under a system-wide load change (a consistent attenuation), without labels or training.
+* [Anchored screening (#8)](https://huggingface.co/spaces/gridfm/genco-challenge/discussions/8) finds GENCO's errors largely systematic and starts Newton from GENCO's predicted change. Our gain shows that this predicted change is itself 20–28 % too small, consistent with their need for a Newton step after anchoring. GENCO + Newton hybrids appear in several entries (#8, #17, #19, #25), so our hybrid check is a diagnostic (the bias is correctable), not a claimed new method.
+* No other entry (24 at the time of writing) tests representation equivariance, which is what Mirror adds.
 
 ## 2. Experimental design
 
@@ -65,6 +71,7 @@ Pretrained GENCO PF checkpoint `gridfm/genco-pf-datakit` · `case118_ieee/base/s
 
 Figures: `results/genco_n50/mirror.png`, `results/genco_n50/butterfly_physics.png`. The pilot (n = 8) figures and tables are in `results/genco_pilot8/`. The AC reference on the standard IEEE 118 case is `results/ac_reference/ac_reference.png`.
 
+![Workflow](results/genco_n50/schematic.png)
 ![Hybrid](results/genco_n50/hybrid.png)
 ![Mirror](results/genco_n50/mirror.png)
 ![Butterfly and Physics Lens](results/genco_n50/butterfly_physics.png)

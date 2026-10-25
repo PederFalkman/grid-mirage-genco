@@ -76,6 +76,13 @@ def injections_mw(grid, vm, va):
     return s.real, s.imag
 
 
+def branch_flows_mw(grid, vm, va):
+    """Sending-end active power on every directed edge [MW] (as GraphKit's ComputeBranchFlow)."""
+    v = vm * np.exp(1j * va)
+    vf, vt = v[grid.edge_from], v[grid.edge_to]
+    return (vf * np.conj(grid.y_self * vf + grid.y_mutual * vt)).real * grid.base_mva
+
+
 def bus_generation_setpoint(grid):
     pg = np.zeros(grid.n)
     np.add.at(pg, grid.gen_bus, grid.pg)

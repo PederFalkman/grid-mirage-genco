@@ -73,13 +73,23 @@ def main():
             if si == base:
                 continue
             dr = ref[si] - ref[base]
+            gs, gb = states[si][0], states[base][0]
+            df_ref = acgrid.branch_flows_mw(gs, ref[si, :, 0], ref[si, :, 1]) - acgrid.branch_flows_mw(gb, ref[base, :, 0], ref[base, :, 1])
+            moving = np.abs(df_ref) > 0.5  # edges whose true flow moves by more than 0.5 MW
             for name in ('genco', 'genco+1nr', 'genco+2nr'):
                 cur, b0 = states[si][1][name], states[base][1][name]
                 dvm, dva = cur[0] - b0[0], cur[1] - b0[1]
+                df = acgrid.branch_flows_mw(gs, cur[0], cur[1]) - acgrid.branch_flows_mw(gb, b0[0], b0[1])
+                ratio = df[moving] / df_ref[moving]
                 for r in rows:
                     if r['scenario'] == s and r['relative_load_change'] == delta and r['method'] == name:
                         r['gain_vm'] = gain(dvm[pq], dr[pq, 0])
                         r['gain_va'] = gain(dva[nonref], dr[nonref, 1])
+                        r['gain_flow'] = gain(df, df_ref)
+                        r['flow_ratio_median'] = float(np.median(ratio)) if ratio.size else float('nan')
+                        r['flow_ratio_p10'] = float(np.percentile(ratio, 10)) if ratio.size else float('nan')
+                        r['flow_ratio_p90'] = float(np.percentile(ratio, 90)) if ratio.size else float('nan')
+                        r['flow_moving_edges'] = int(moving.sum())
             if abs(delta) == 0.01:
                 scatter['ref'].append(dr[nonref, 1])
                 scatter['genco'].append((states[si][1]['genco'][1] - states[base][1]['genco'][1])[nonref])
@@ -101,6 +111,12 @@ def main():
             'gain_va_mean': float(np.mean([x['gain_va'] for x in nz])),
             'gain_va_min': float(np.min([x['gain_va'] for x in nz])),
             'gain_va_max': float(np.max([x['gain_va'] for x in nz])),
+            'gain_flow_mean': float(np.mean([x['gain_flow'] for x in nz])),
+            'gain_flow_min': float(np.min([x['gain_flow'] for x in nz])),
+            'gain_flow_max': float(np.max([x['gain_flow'] for x in nz])),
+            'flow_ratio_median_at_1pct': float(np.median([x['flow_ratio_median'] for x in nz if abs(x['relative_load_change']) == 0.01])),
+            'flow_ratio_p10_at_1pct': float(np.median([x['flow_ratio_p10'] for x in nz if abs(x['relative_load_change']) == 0.01])),
+            'flow_ratio_p90_at_1pct': float(np.median([x['flow_ratio_p90'] for x in nz if abs(x['relative_load_change']) == 0.01])),
             'vm_err_max_pu': float(np.max([x['vm_err_max_pu'] for x in r])),
             'va_err_max_rad': float(np.max([x['va_err_max_rad'] for x in r])),
             'p_residual_mean_mw': float(np.mean([x['p_residual_mean_mw'] for x in r])),
@@ -113,7 +129,12 @@ def main():
         'flat_start_max': int(np.max([x['nr_iters_flat'] for x in g])),
         'genco_warm_start_max': int(np.max([x['nr_iters_warm_genco'] for x in g]))}
     (d / 'hybrid_summary.json').write_text(json.dumps(summary, indent=2) + '\n')
-    lines = ['| Method | Vm gain | Va gain [min–max] | max |Vm err| [p.u.] | max |Va err| [rad] | mean |ΔP| [MW] | max |ΔP| [MW] |',
+    lines = ['| Method | Line-flow gain [min–max] | median per-line ΔP ratio at ±1 % [p10–p90] |', '|---|---|---|']
+    for name, label in (('genco', 'GENCO'), ('genco+1nr', 'GENCO + 1 NR step'), ('genco+2nr', 'GENCO + 2 NR steps')):
+        q = summary[name]
+        lines.append(f"| {label} | {q['gain_flow_mean']:.4f} [{q['gain_flow_min']:.4f}–{q['gain_flow_max']:.4f}] | "
+                     f"{q['flow_ratio_median_at_1pct']:.3f} [{q['flow_ratio_p10_at_1pct']:.3f}–{q['flow_ratio_p90_at_1pct']:.3f}] |")
+    lines += ['', '| Method | Vm gain | Va gain [min–max] | max |Vm err| [p.u.] | max |Va err| [rad] | mean |ΔP| [MW] | max |ΔP| [MW] |',
              '|---|---|---|---|---|---|---|']
     for name, label in (('genco', 'GENCO'), ('genco+1nr', 'GENCO + 1 NR step'), ('genco+2nr', 'GENCO + 2 NR steps')):
         q = summary[name]
