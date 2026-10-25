@@ -1,0 +1,12 @@
+{
+  "source": "pandapower.networks.case118 (MATPOWER IEEE 118)",
+  "max_abs_vm_diff_vs_pandapower_pu": 9.769962616701378e-15,
+  "max_abs_va_diff_vs_pandapower_rad": 1.965094753586527e-14,
+  "cases": 42,
+  "max_vm_equivariance_error_pu": 1.3322676295501878e-15,
+  "max_va_equivariance_error_rad": 8.881784197001252e-15,
+  "max_pg_equivariance_error_mw": 1.6996182239381596e-11,
+  "max_qg_equivariance_error_mvar": 1.2643365629335048e-11,
+  "max_max_abs_p_residual_mw": 5.684341886080802e-14,
+  "max_max_abs_q_residual_mvar": 0.0
+}

@@ -1,0 +1,9 @@
+scenario 14318: done
+scenario 21026: done
+scenario 57182: done
+scenario 72424: done
+scenario 102727: done
+scenario 118407: done
+scenario 132454: done
+scenario 209625: done
+{"mirror_rows": 560, "butterfly_rows": 56, "out": "results/genco"}

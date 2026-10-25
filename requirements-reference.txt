@@ -1,0 +1,4 @@
+numpy>=1.24
+pytest>=7
+matplotlib>=3.7
+pandapower>=3.0  # optional: IEEE 118 case data + cross-check for src/ac_reference_mirage.py

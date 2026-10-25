@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+external-genco/
+results/official/
+*.pt
+*.pth
+*.ckpt
+*.npz
+.DS_Store
