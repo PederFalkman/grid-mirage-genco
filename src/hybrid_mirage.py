@@ -146,32 +146,49 @@ def main():
     (d / 'hybrid_summary.md').write_text('\n'.join(lines) + '\n')
     print('\n'.join(lines))
 
-    import matplotlib
-    matplotlib.use('Agg')
+    import figstyle as fs
     import matplotlib.pyplot as plt
     ref = np.concatenate(scatter['ref']) * 1e3
-    fig, ax = plt.subplots(1, 2, figsize=(11, 4.6))
-    lim = np.abs(ref).max() * 1.05
-    ax[0].plot([-lim, lim], [-lim, lim], color='0.5', lw=1, ls='--', label='physics (ideal)')
-    ax[0].scatter(ref, np.concatenate(scatter['genco']) * 1e3, s=3, alpha=.35, color='#d6604d',
-                  label=f"GENCO (gain {summary['genco']['gain_va_mean']:.2f})")
-    ax[0].scatter(ref, np.concatenate(scatter['h1']) * 1e3, s=3, alpha=.35, color='#2166ac',
-                  label=f"GENCO + 1 NR step (gain {summary['genco+1nr']['gain_va_mean']:.3f})")
-    ax[0].set(xlabel='True ΔVa for ±1 % load [mrad]', ylabel='Predicted ΔVa [mrad]',
-              title=f'Butterfly: {len(meta["scenarios"])} test scenarios, all non-slack buses')
-    ax[0].legend(fontsize=8, markerscale=4)
-    names = ['GENCO', '+1 NR step', '+2 NR steps']
-    vals = [summary[k]['p_residual_mean_mw'] for k in ('genco', 'genco+1nr', 'genco+2nr')]
-    ax[1].bar(names, vals, color=['#d6604d', '#2166ac', '#4393c3'])
-    ax[1].set_yscale('log')
-    ax[1].set(ylabel='mean |ΔP| at PQ+PV buses [MW]', title='Physics Lens: power-balance residual')
-    for i, v in enumerate(vals):
-        ax[1].text(i, v, f'{v:.1e}', ha='center', va='bottom', fontsize=8)
-    for axis in ax:
-        axis.grid(alpha=.2)
-    fig.suptitle('GENCO under-reacts to load changes; one physics step restores the response', fontsize=11)
-    fig.tight_layout()
-    fig.savefig(d / 'hybrid.png', dpi=160)
+    fig, ax = plt.subplots(1, 2, figsize=(12, 5.2), gridspec_kw={'width_ratios': [1.25, 1]})
+    a, b = ax
+    lim = np.ceil(np.abs(ref).max() / 10) * 10
+    a.plot([-lim, lim], [-lim, lim], color=fs.REFERENCE, lw=1.2, zorder=2, label='physics: predicted = true')
+    gv, hv = summary['genco']['gain_va_mean'], summary['genco+1nr']['gain_va_mean']
+    a.scatter(ref, np.concatenate(scatter['genco']) * 1e3, s=5, alpha=.35, color=fs.ORANGE, linewidth=0,
+              zorder=3, label=f'GENCO (gain {gv:.2f})')
+    a.scatter(ref, np.concatenate(scatter['h1']) * 1e3, s=5, alpha=.35, color=fs.BLUE, linewidth=0,
+              zorder=4, label=f'GENCO + 1 Newton step (gain {hv:.3f})')
+    a.set_xlim(-lim, lim)
+    a.set_ylim(-lim, lim)
+    a.set_aspect('equal')
+    a.axhline(0, color=fs.AXIS, lw=0.8, zorder=1)
+    a.axvline(0, color=fs.AXIS, lw=0.8, zorder=1)
+    a.set_xlabel('true change in voltage angle for ±1 % load [mrad]')
+    a.set_ylabel('predicted change [mrad]')
+    a.set_title(f'Butterfly: every non-slack bus, {len(meta["scenarios"])} test scenarios')
+    leg = a.legend(loc='upper left', markerscale=3)
+    for hnd in leg.legend_handles:
+        hnd.set_alpha(1)
+
+    names = ['GENCO', 'GENCO + 1 Newton step', 'GENCO + 2 Newton steps']
+    keys = ('genco', 'genco+1nr', 'genco+2nr')
+    vals = [summary[k]['p_residual_mean_mw'] for k in keys]
+    y = np.arange(3)[::-1]
+    b.barh(y, vals, height=0.28, color=[fs.ORANGE, fs.BLUE, '#86b6ef'], zorder=3)
+    for yi, v, k in zip(y, vals, keys):
+        b.annotate(f'{v:.1e} MW', (v, yi), xytext=(6, 0), textcoords='offset points', va='center',
+                   fontsize=9, color=fs.INK2)
+    b.set_xscale('log')
+    b.set_xlim(1e-8, 10)
+    b.set_yticks(y)
+    b.set_yticklabels(names)
+    b.grid(axis='y', visible=False)
+    b.set_xlabel('mean |ΔP| at PQ + PV buses [MW], log scale')
+    b.set_title('Physics Lens: power-balance residual')
+    fs.header(fig, 'GENCO under-reacts to load changes; one Newton step from its prediction restores the physics',
+              'Left: predicted vs true voltage-angle change at ±1 % load. Right: mean power-balance residual '
+              'over all 350 cases (50 scenarios × 7 load levels).')
+    fig.savefig(d / 'hybrid.png')
 
 
 if __name__ == '__main__':
