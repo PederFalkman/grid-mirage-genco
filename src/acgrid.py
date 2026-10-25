@@ -82,11 +82,13 @@ def bus_generation_setpoint(grid):
     return pg
 
 
-def newton_pf(grid, tol=1e-10, max_iter=30, flat_start=True, v0=None):
+def newton_pf(grid, tol=1e-10, max_iter=30, flat_start=True, v0=None, strict=True):
     """Polar Newton-Raphson AC power flow (generator Q limits not enforced).
 
     Returns dict with vm [p.u.], va [rad], pg/qg per bus [MW/Mvar],
-    iterations and final mismatch [p.u.]. Raises if it does not converge.
+    iterations and final mismatch [p.u.]. Raises if it does not converge,
+    unless ``strict=False`` (then returns the state after ``max_iter`` steps,
+    e.g. a fixed number of correction steps from a warm start ``v0=(vm, va)``).
     """
     grid.validate()
     n = grid.n
@@ -111,6 +113,8 @@ def newton_pf(grid, tol=1e-10, max_iter=30, flat_start=True, v0=None):
         if norm < tol:
             break
         if it == max_iter:
+            if not strict:
+                break
             raise RuntimeError(f'Newton-Raphson did not converge (mismatch {norm:.3e})')
         dva = 1j * np.diag(v) @ np.conj(np.diag(i) - y @ np.diag(v))
         dvm = np.diag(v) @ np.conj(y @ np.diag(v / vm)) + np.diag(np.conj(i) * v / vm)

@@ -21,7 +21,14 @@ Pretrained GENCO PF checkpoint `gridfm/genco-pf-datakit` · `case118_ieee/base/s
    The slack ratio is independent of the load step: 0.795 at −1 %, 0.800 at −0.1 %, 0.801 at +0.1 %, 0.805 at +1 %. So this is a linearized sensitivity bias, not an extrapolation artifact, and it is symmetric in sign. No scenario reaches the physical response. The pilot, with 8 *different* test scenarios, gave 0.785 / 0.696 / 0.774, inside the same ranges.
 3. **Physics Lens: power-balance error grows away from the dataset operating point.** Mean |ΔP| at PQ+PV buses at δ = 0 is **0.125 MW** (median over scenarios 0.095, 95 % CI of the mean [0.096, 0.163]). That interval contains the checkpoint's published test-set metric `Avg. active res. 0.106 MW`, which independently confirms that the pipeline reproduces the official evaluation. The mean rises to 0.137 MW at +1 % and 0.145 MW at −1 %. Mean |ΔQ| at PQ buses is 0.026 Mvar. The per-scenario maximum |ΔP| has median 0.36 MW and a heavy tail (one scenario reaches 6.0 MW). The AC reference residual is ≤ 6e-14 MW in every case.
 
-**Interpretation.** GENCO "sees through" the representational mirage: relabeling does not change its answer beyond float32 round-off. Its weakness is not representational but physical sensitivity. For a small, valid, physically consistent change in demand, it moves the state only about 72–80 % as far as the physics does, in every scenario tested. For uses that depend on sensitivities (what-if, contingency or load-growth screening), this bias matters more than its point accuracy suggests.
+4. **Hybrid fix: one Newton–Raphson step from GENCO restores exact physics.** Warm-starting a single AC Newton–Raphson step from GENCO's predicted voltages (same 50 scenarios × 7 load levels) gives:
+   - response gain 0.786 → **0.9996** (Vm) and 0.718 → **0.9998** (Va, range 0.991–1.001);
+   - mean power-balance residual 0.13 MW → **6.3e-4 MW** (≈200× lower; max 6.5 → 0.49 MW);
+   - with two steps, gain 1.0000 and residual 1e-7 MW.
+
+   As an initializer, GENCO cuts full Newton–Raphson iterations to 1e-8 p.u. from 4.0 (flat start) to **2.1** on average (max 3). GENCO plus one physics step therefore gives physically exact sensitivities at the cost of a single linear solve. The same metamorphic test that exposed the bias certifies the fix (`src/hybrid_mirage.py`, `results/genco_n50/hybrid_summary.md`).
+
+**Interpretation.** GENCO "sees through" the representational mirage: relabeling does not change its answer beyond float32 round-off. Its weakness is not representational but physical sensitivity. For a small, valid, physically consistent change in demand, it moves the state only about 72–80 % as far as the physics does, in every scenario tested. For uses that depend on sensitivities (what-if, contingency or load-growth screening), this bias matters more than its point accuracy suggests. The bias is cheap to remove: GENCO is an excellent *initializer*, and one Newton–Raphson step on top of it restores the physical response and power balance. That suggests a practical workflow: GENCO for speed, one physics step for trustworthy sensitivities, and Butterfly as the acceptance test.
 
 ## 2. Experimental design
 
@@ -30,6 +37,7 @@ Pretrained GENCO PF checkpoint `gridfm/genco-pf-datakit` · `case118_ieee/base/s
 * **Mirror:** each relabeling applies random permutations to bus rows (features and labels), generator rows, gen↔bus edges, and branch-edge order with attributes and targets. Outputs are mapped back to canonical order before comparison. Unit tests confirm each relabeled sample is the same physical grid (AC solution identical to 1e-9).
 * **Butterfly:** Pd and Qd at every bus × (1 + δ), δ ∈ {−1, −0.5, −0.1, 0, +0.1, +0.5, +1} %, with generator set-points and voltages unchanged and the slack absorbing the change. This is a valid PF input. *Response gain* = ⟨Δy_GENCO, Δy_ref⟩ / ⟨Δy_ref, Δy_ref⟩ over PQ buses (Vm) or non-slack buses (Va), averaged over the six non-zero δ per scenario. Confidence intervals are from a bootstrap over scenarios (10,000 resamples).
 * **AC reference** (`src/acgrid.py`, independent code): polar Newton–Raphson on the scenario's own admittances (Yff/Yft/Ytt/Ytf), shunts and set-points. It is validated twice: against pandapower on IEEE 118 (≤ 2e-14), and against the dataset's own AC labels for every scenario used (≤ 5.6e-7 p.u., limited by GraphKit's float32 storage; ≤ 5e-11 in float64 directly from parquet). All 58 scenarios passed the validity gate (`accuracy.csv: reference_validated`).
+* **Hybrid:** GENCO's float32 Vm/Va (original representation) is the warm start for the same Newton–Raphson solver, with a fixed 1 or 2 steps, or run to 1e-8 p.u. to count iterations. Power balance is evaluated against the *specified* injections (PV set-points, zero generation at PQ buses), so the residual is not trivially zero.
 * **Physics Lens:** AC nodal balance using the predicted Vm, Va, Pg and Qg and the scenario's admittances. GENCO's PF decoder computes slack-bus Pg and PV/slack-bus Qg from the predicted voltages, so those residuals are zero by construction (confirmed: ≤ 1.9e-4 MW, float32) and are excluded. Reported residuals are **P at PQ+PV buses and Q at PQ buses**.
 
 ## 3. Model facts relevant to the test (from GraphKit source)
@@ -57,6 +65,7 @@ Pretrained GENCO PF checkpoint `gridfm/genco-pf-datakit` · `case118_ieee/base/s
 
 Figures: `results/genco_n50/mirror.png`, `results/genco_n50/butterfly_physics.png`. The pilot (n = 8) figures and tables are in `results/genco_pilot8/`. The AC reference on the standard IEEE 118 case is `results/ac_reference/ac_reference.png`.
 
+![Hybrid](results/genco_n50/hybrid.png)
 ![Mirror](results/genco_n50/mirror.png)
 ![Butterfly and Physics Lens](results/genco_n50/butterfly_physics.png)
 
@@ -79,6 +88,7 @@ pip install -e external-genco/gridfm-graphkit
 python src/fetch_genco_inputs.py --dest external-genco     # checkpoint + bus_data + 58 needed partitions (~1 GB)
 bash run_genco_mirage.sh                                   # tests + 50-scenario run + summary + figures (~11 min on 4 CPUs)
 NUM_SAMPLES=8 OUT=results/genco_pilot8 bash run_genco_mirage.sh   # note: different draw size → different scenarios
+python src/hybrid_mirage.py results/genco_n50 --raw-dir external-genco/data/case118_ieee/raw   # hybrid fix (~20 s)
 python src/ac_reference_mirage.py                          # optional, needs pandapower
 ```
 

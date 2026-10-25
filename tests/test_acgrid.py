@@ -78,3 +78,15 @@ def test_ieee118_matches_pandapower():
     sol = acgrid.newton_pf(grid)
     assert np.abs(sol['vm'] - ref['vm']).max() < 1e-8
     assert np.abs(sol['va'] - ref['va']).max() < 1e-8
+
+
+def test_fixed_warm_start_steps_converge_quadratically(grid):
+    sol = acgrid.newton_pf(grid)
+    v0 = (sol['vm'] + 0.01 * (grid.bus_type == acgrid.PQ), sol['va'] * 0.8)
+    errs = []
+    for k in (1, 2):
+        h = acgrid.newton_pf(grid, tol=0, max_iter=k, flat_start=False, v0=v0, strict=False)
+        errs.append(np.abs(h['va'] - sol['va']).max())
+    assert errs[1] < errs[0] ** 1.5 and errs[1] < 1e-5
+    with pytest.raises(RuntimeError):
+        acgrid.newton_pf(grid, tol=0, max_iter=1, flat_start=False, v0=v0)
