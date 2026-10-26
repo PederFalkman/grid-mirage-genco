@@ -1,0 +1,56 @@
+{
+  "genco": {
+    "gain_vm_mean": 0.9900203887711623,
+    "gain_va_mean": 0.9893796943887462,
+    "gain_va_min": 0.9551882116189656,
+    "gain_va_max": 1.0169165455984883,
+    "gain_flow_mean": 1.0002031667472489,
+    "gain_flow_min": 0.9919330909599794,
+    "gain_flow_max": 1.019947501377946,
+    "flow_ratio_median_at_1pct": 0.9998788581686278,
+    "flow_ratio_p10_at_1pct": 0.9983267060665193,
+    "flow_ratio_p90_at_1pct": 1.0015217413819015,
+    "vm_err_max_pu": 0.004697442054748535,
+    "va_err_max_rad": 0.0020767942609091206,
+    "p_residual_mean_mw": 0.0048145376238095785,
+    "p_residual_max_mw": 0.07909881103810434
+  },
+  "genco+1nr": {
+    "gain_vm_mean": 0.9999994917241787,
+    "gain_va_mean": 1.0000000085633014,
+    "gain_va_min": 0.9999453447612805,
+    "gain_va_max": 1.0000182753975282,
+    "gain_flow_mean": 1.0000005467596502,
+    "gain_flow_min": 0.9999344994307751,
+    "gain_flow_max": 1.0000335797845774,
+    "flow_ratio_median_at_1pct": 0.9999998284227907,
+    "flow_ratio_p10_at_1pct": 0.9999994044528979,
+    "flow_ratio_p90_at_1pct": 1.0000001411722894,
+    "vm_err_max_pu": 1.1251109196530606e-06,
+    "va_err_max_rad": 1.7902998072361065e-06,
+    "p_residual_mean_mw": 1.0515313854060827e-05,
+    "p_residual_max_mw": 0.0012408809110127095
+  },
+  "genco+2nr": {
+    "gain_vm_mean": 1.000000000018379,
+    "gain_va_mean": 1.0000000000136031,
+    "gain_va_min": 0.9999999924380658,
+    "gain_va_max": 1.0000000037243078,
+    "gain_flow_mean": 1.0000000000104057,
+    "gain_flow_min": 0.9999999932068313,
+    "gain_flow_max": 1.000000003268057,
+    "flow_ratio_median_at_1pct": 1.0000000000000342,
+    "flow_ratio_p10_at_1pct": 0.9999999999999052,
+    "flow_ratio_p90_at_1pct": 1.0000000000001767,
+    "vm_err_max_pu": 1.1211365169572218e-11,
+    "va_err_max_rad": 6.7049921170792e-11,
+    "p_residual_mean_mw": 6.326363716022526e-12,
+    "p_residual_max_mw": 7.276668156919186e-10
+  },
+  "nr_iterations_to_1e-8": {
+    "flat_start_mean": 4.02,
+    "genco_warm_start_mean": 1.9342857142857144,
+    "flat_start_max": 5,
+    "genco_warm_start_max": 2
+  }
+}

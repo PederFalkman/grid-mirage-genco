@@ -3,7 +3,35 @@
 **Same physics. Different representation. Different predictions?**
 Pretrained GENCO PF checkpoint `gridfm/genco-pf-datakit` · `case118_ieee/base/seed0` · executed on CPU (4 vCPU cloud container, no GPU). All GENCO numbers below come from `results/genco_n50/` (main run, 50 test scenarios) and `results/genco_pilot8/` (independent pilot, 8 different test scenarios). Both were produced by `src/genco_mirage.py`. Nothing is simulated.
 
-## 1. Findings
+## 0. Headline: eight released checkpoints
+
+GRID MIRAGE was run with the identical protocol on eight released GENCO PF checkpoints (`gridfm/genco-pf-datakit`): IEEE 14 and IEEE 118 × tiny/small/base (hidden 12/24/48), seed 0, plus seed 1 for IEEE 118 tiny and base. Each checkpoint uses 50 scenarios from **its own** official test split (`results/genco_case*_n50/`, `results/genco_n50/` = IEEE 118 base seed 0). Every scenario passed the AC-reference validity gate (400/400).
+
+| Checkpoint | hidden | n | Mirror float64 max [rad] | Vm gain [95 % CI] | Va gain [95 % CI] | line-flow gain | slack ΔP gain | P residual δ=0 [MW] (published) |
+|---|---|---|---|---|---|---|---|---|
+| IEEE 14 tiny seed 0 | 12 | 50 | 6e-15 | 0.990 [0.986, 0.994] | 0.989 [0.986, 0.993] | 1.000 | 1.000 | 0.00479 (0.00414) |
+| IEEE 14 small seed 0 | 24 | 50 | 3e-15 | 0.993 [0.990, 0.996] | 0.993 [0.991, 0.996] | 0.999 | 0.999 | 0.00328 (0.0025) |
+| IEEE 14 base seed 0 | 48 | 50 | 4e-15 | 0.989 [0.986, 0.993] | 0.991 [0.989, 0.994] | 1.000 | 1.000 | 0.00242 (0.00211) |
+| IEEE 118 tiny seed 0 | 12 | 50 | 2e-14 | 0.845 [0.822, 0.868] | 0.798 [0.780, 0.815] | 0.831 | 0.860 | 0.15 (0.166) |
+| IEEE 118 tiny seed 1 | 12 | 50 | 2e-14 | 0.872 [0.855, 0.888] | 0.859 [0.845, 0.873] | 0.888 | 0.913 | 0.11 (0.105) |
+| IEEE 118 small seed 0 | 24 | 50 | 9e-15 | 0.818 [0.793, 0.842] | 0.748 [0.730, 0.766] | 0.780 | 0.807 | 0.12 (0.125) |
+| IEEE 118 base seed 0 | 48 | 50 | 1e-14 | 0.786 [0.761, 0.809] | 0.718 [0.701, 0.735] | 0.762 | 0.800 | 0.125 (0.106) |
+| IEEE 118 base seed 1 | 48 | 50 | 9e-15 | 0.790 [0.767, 0.810] | 0.710 [0.694, 0.726] | 0.748 | 0.786 | 0.117 (0.113) |
+
+* **Mirror** passes on all eight checkpoints (float64 ≤ 2e-14).
+* **Butterfly:**
+  - IEEE 14 responds correctly at every size (gain 0.99–1.00).
+  - Every IEEE 118 checkpoint under-reacts (voltage/angle/line-flow gains 0.71–0.89), with the Va gain below 1 in all 50 scenarios of each.
+  - Within IEEE 118 the gain decreases with model size in both seeds (Va: tiny 0.80/0.86 → base 0.72/0.71, non-overlapping CIs).
+  - IEEE 118 tiny seed 1 has about the same residual as base (0.11 vs 0.12–0.13 MW) but gain 0.86 vs 0.71, so point accuracy does not predict sensitivity.
+* **Physics Lens** residuals are close to each checkpoint's published `Avg. active res.`, which validates the pipeline.
+* **Hybrid:** one Newton step from GENCO restores gain 1.00 on every checkpoint (every case within 0.98–1.02).
+
+![Checkpoints](results/checkpoints.png)
+
+Sections 1–4 below are the detailed deep-dive on **IEEE 118 base, seed 0**.
+
+## 1. Findings (IEEE 118 base, seed 0)
 
 1. **Mirror: GENCO is permutation-equivariant.** Consistent relabelings of buses, generators and branches give 50 scenarios × 7 load levels × 5 relabelings = 1,750 comparisons per precision. In float64 they change predictions by at most **9.3e-15 p.u. (Vm), 1.2e-14 rad (Va), 1.1e-11 MW (Pg), 6.0e-11 Mvar (Qg)**. In deployed float32 the spread is **7.2e-6 p.u., 7.7e-6 rad, 6.5e-3 MW, 4.5e-2 Mvar**, caused entirely by floating-point summation order:
    - inference is bit-repeatable (0.0 difference for identical input);
@@ -71,7 +99,7 @@ Pretrained GENCO PF checkpoint `gridfm/genco-pf-datakit` · `case118_ieee/base/s
 
 Figures: `results/genco_n50/mirror.png`, `results/genco_n50/butterfly_physics.png`. The pilot (n = 8) figures and tables are in `results/genco_pilot8/`. The AC reference on the standard IEEE 118 case is `results/ac_reference/ac_reference.png`.
 
-![Workflow](results/genco_n50/schematic.png)
+![Workflow](results/schematic.png)
 ![Hybrid](results/genco_n50/hybrid.png)
 ![Mirror](results/genco_n50/mirror.png)
 ![Butterfly and Physics Lens](results/genco_n50/butterfly_physics.png)
@@ -81,7 +109,7 @@ Figures: `results/genco_n50/mirror.png`, `results/genco_n50/butterfly_physics.pn
 * 50 + 8 scenarios out of a 21,908-scenario test split, with 5 relabelings each. The attenuation is present in every scenario and the CIs are tight, but this is a targeted sample, not a full benchmark.
 * Butterfly uses uniform proportional demand scaling with fixed generator set-points. Other perturbation directions (single-bus, generation re-dispatch) were not tested.
 * The cause of the attenuation (e.g. smoothing from the regression objective) is not established here. Training data vary loads by far more than ±1 %, so the perturbation is not obviously out-of-distribution.
-* One checkpoint (IEEE 118, base, seed 0). Other grids, seeds and the OPF models were not evaluated.
+* Eight PF checkpoints on two grids (IEEE 14, IEEE 118); two seeds only for IEEE 118 tiny/base. Larger grids (GOC 500/2000), other datasets (PFΔ, contingency) and the OPF models were not evaluated, so where the attenuation starts between 14 and 118 buses is unknown.
 * Environment: CPU only. torch-scatter was built from source because prebuilt PyG wheels were unreachable. Full `pip freeze` is in each results directory.
 
 ## 6. Reproduce
@@ -93,7 +121,8 @@ FORCE_CUDA=0 pip install --no-build-isolation torch-scatter
 git clone --branch genco-paper-repro https://github.com/gridfm/gridfm-graphkit external-genco/gridfm-graphkit
 pip install -e external-genco/gridfm-graphkit
 python src/fetch_genco_inputs.py --dest external-genco     # checkpoint + bus_data + 58 needed partitions (~1 GB)
-bash run_genco_mirage.sh                                   # tests + 50-scenario run + summary + figures (~11 min on 4 CPUs)
+bash run_genco_mirage.sh
+bash run_all_checkpoints.sh                                # all 8 checkpoints + comparison (~2 h on 4 CPUs)                                   # tests + 50-scenario run + summary + figures (~11 min on 4 CPUs)
 NUM_SAMPLES=8 OUT=results/genco_pilot8 bash run_genco_mirage.sh   # note: different draw size → different scenarios
 python src/hybrid_mirage.py results/genco_n50 --raw-dir external-genco/data/case118_ieee/raw   # hybrid fix (~20 s)
 python src/ac_reference_mirage.py                          # optional, needs pandapower

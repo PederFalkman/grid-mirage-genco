@@ -185,7 +185,9 @@ def main():
     b.grid(axis='y', visible=False)
     b.set_xlabel('mean |ΔP| at PQ + PV buses [MW], log scale')
     b.set_title('Physics Lens: power-balance residual')
-    fs.header(fig, 'GENCO under-reacts to load changes; one Newton step from its prediction restores the physics',
+    import plot_genco
+    tag, _ = plot_genco.model_tag(d)
+    fs.header(fig, f'{tag}: predicted vs true response, and one Newton step from GENCO',
               'Left: predicted vs true voltage-angle change at ±1 % load. Right: mean power-balance residual '
               'over all 350 cases (50 scenarios × 7 load levels).')
     fig.savefig(d / 'hybrid.png')

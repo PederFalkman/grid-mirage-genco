@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # GRID MIRAGE on real GENCO predictions, small validated subset (no 250k processing).
-# Inputs: `python src/fetch_genco_inputs.py --dest external-genco` (checkpoint + bus_data +
-# only the needed gen/branch partitions); GraphKit cloned to external-genco/gridfm-graphkit.
+# Inputs: either `python src/fetch_genco_inputs.py --dest external-genco` (checkpoint + bus_data +
+# only the needed gen/branch partitions), or the layout created by run_official_genco.sh:
+#   external-genco/gridfm-graphkit                     (branch genco-paper-repro, pip install -e)
+#   external-genco/gridfm-graphkit/genco-pf-datakit/case118_ieee/base/seed0/{yaml,pt}
+#   external-genco/gridfm-graphkit/data/case118_ieee/raw/{bus,gen,branch}_data.parquet
 # Override with GRAPHKIT=..., CKPT_DIR=..., RAW_DIR=..., NUM_SAMPLES=..., VENV=...
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

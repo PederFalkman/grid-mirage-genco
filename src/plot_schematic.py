@@ -27,14 +27,14 @@ def main(out):
     ax.set_xlim(-0.012, 1.012)
     ax.set_ylim(0, 1.1)
     ax.axis('off')
-    box(ax, 0.01, 0.40, 0.15, 0.22, 'Official test scenario\nIEEE 118, held-out split\nGraphKit pipeline', GREY, fs=8.4, bold=True)
+    box(ax, 0.01, 0.40, 0.15, 0.22, '8 released GENCO\ncheckpoints, IEEE 14/118\n× 50 held-out scenarios', GREY, fs=8.4, bold=True)
     rows = [
         (0.72, 'MIRROR', 'Relabel buses, generators\nand branches (same physics)', 'GENCO → map back\nto original order',
-         '✔  Same answer\n≤1e-14 in float64;\nfloat32 spread = round-off', BLUE, GREEN),
+         '✔  Same answer, all 8\n≤2e-14 in float64;\nfloat32 spread = round-off', BLUE, GREEN),
         (0.40, 'BUTTERFLY', 'Scale all demand\n±0.1 … ±1 %', 'GENCO vs exact\nAC Newton–Raphson',
-         '✘  Under-reacts\nvoltages 0.72–0.79×,\nline flows 0.76× of physics', ORANGE, RED),
+         'IEEE 14:  ✔ ≈ 0.99×\nIEEE 118: ✘ 0.71–0.87×\nlarger models lower', ORANGE, RED),
         (0.08, 'PHYSICS LENS', 'Use predicted\nVm, Va, Pg, Qg', 'AC nodal balance on\nnon-enforced quantities',
-         'Residual 0.125 MW mean,\ngrows with |Δload|', AQUA, GREY),
+         'Residual close to each\npublished metric;\ngrows with |Δload|', AQUA, GREY),
     ]
     for y, name, step1, step2, verdict, c, vc in rows:
         ax.text(0.205, y + 0.205, name, fontsize=10, weight='bold', color=INK)
@@ -44,7 +44,7 @@ def main(out):
         arrow(ax, 0.174, 0.51, 0.186, y + 0.095)
         arrow(ax, 0.384, y + 0.095, 0.397, y + 0.095)
         arrow(ax, 0.594, y + 0.095, 0.607, y + 0.095)
-    box(ax, 0.825, 0.30, 0.17, 0.40, 'Hybrid check\n\nGENCO + 1 Newton step\n\n✔  response 0.9996–0.9999×\n✔  residual 0.0006 MW\n\nthe bias is systematic\nand correctable', GREEN, fs=8.5)
+    box(ax, 0.825, 0.30, 0.17, 0.40, 'Hybrid check\n\nGENCO + 1 Newton step\n\n✔  gain 1.000 on all 8\n✔  residual ~200× lower\n\nthe bias is systematic\nand correctable', GREEN, fs=8.5)
     arrow(ax, 0.804, 0.495, 0.812, 0.495, GREEN)
     arrow(ax, 0.804, 0.19, 0.818, 0.30, GREY)
     ax.text(0.0, 1.09, 'GRID MIRAGE: a label-free acceptance test for grid foundation models',

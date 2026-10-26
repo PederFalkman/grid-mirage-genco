@@ -2,19 +2,20 @@
 
 **Same physics. Different representation. Different predictions?**
 
-An entry to the [GridFM GENCO Challenge](https://huggingface.co/spaces/gridfm/genco-challenge). A **label-free acceptance test for grid foundation models** (three metamorphic tests plus a hybrid check), applied to the pretrained GENCO power-flow model [`gridfm/genco-pf-datakit`](https://huggingface.co/gridfm/genco-pf-datakit) (IEEE 118, base, seed 0) using the official [GraphKit](https://github.com/gridfm/gridfm-graphkit) pipeline. The test uses 50 scenarios from the official held-out test split of [`gridfm/pf_small_case118_ieee`](https://huggingface.co/datasets/gridfm/pf_small_case118_ieee), plus an independent 8-scenario pilot.
+An entry to the [GridFM GENCO Challenge](https://huggingface.co/spaces/gridfm/genco-challenge): a **label-free acceptance test for grid foundation models**, run on **eight released GENCO power-flow checkpoints** ([`gridfm/genco-pf-datakit`](https://huggingface.co/gridfm/genco-pf-datakit): IEEE 14 and IEEE 118 × tiny/small/base, plus a second seed for IEEE 118 tiny/base). Each uses the official [GraphKit](https://github.com/gridfm/gridfm-graphkit) pipeline and 50 scenarios from its own official held-out test split. All results are real GENCO inference.
 
 | Test | Question | Result |
 |---|---|---|
-| **Mirror** | Same grid, buses/generators/branches relabeled: same prediction? | Yes, equivariant: ≤1.2e-14 in float64. The float32 spread (≤8e-6 p.u.) is summation-order round-off. |
-| **Butterfly** | ±0.1…±1 % demand change: does GENCO respond like the physics? | **Attenuated in 50/50 scenarios:** Vm 0.786× (95 % CI 0.761–0.809), Va 0.718× (0.701–0.735), line flows 0.762× (0.746–0.777), slack ΔPg 0.800× (0.786–0.814) of an exact AC solution. |
-| **Physics Lens** | AC power-balance residual of the predictions (only on quantities not enforced by construction) | 0.125 MW mean at the dataset point (CI contains the published 0.106 MW), rising to 0.137–0.145 MW at ±1 % load. |
-| **Hybrid check** | Is the bias correctable? One Newton–Raphson step from GENCO's prediction | **Yes:** gain → 0.9996 (Vm) / 0.9998 (Va) / 0.9999 (flows), residual 0.13 → 0.0006 MW; GENCO also halves NR iterations as an initializer (4.0 → 2.1). |
+| **Mirror** | Same grid, buses/generators/branches relabeled: same prediction? | **Yes, on all 8 checkpoints:** ≤2e-14 in float64; the float32 spread is summation-order round-off. |
+| **Butterfly** | ±0.1…±1 % demand change: does GENCO respond like the physics? | **IEEE 14: yes** (gain 0.99–1.00). **IEEE 118: no**, every checkpoint under-reacts (gain 0.71–0.89), and **larger models under-react more** in both seeds. |
+| **Physics Lens** | AC power-balance residual (only on quantities not enforced by construction) | Close to each checkpoint's published metric; grows away from the operating point. |
+| **Hybrid check** | Is the bias correctable? One Newton–Raphson step from GENCO's prediction | **Yes:** gain 1.00 on every checkpoint (every case 0.98–1.02); residual ~200× lower. |
 
-![Workflow](results/genco_n50/schematic.png)
-![Hybrid](results/genco_n50/hybrid.png)
-![Mirror](results/genco_n50/mirror.png)
-![Butterfly and Physics Lens](results/genco_n50/butterfly_physics.png)
+![Workflow](results/schematic.png)
+![Response gain across checkpoints](results/checkpoints.png)
+![IEEE 118 base: predicted vs true change](results/genco_n50/hybrid.png)
+
+Per-checkpoint results (CSVs, summaries, Mirror and Butterfly figures, metadata with SHA-256 hashes) are in `results/genco_case{14,118}_{tiny,small,base}[_seed1]_n50/`; `results/genco_n50/` is IEEE 118 base, seed 0. The cross-checkpoint table is `results/checkpoints.md`.
 
 The full method, numbers and limitations are in **[TECHNICAL_REPORT.md](TECHNICAL_REPORT.md)**.
 
@@ -28,6 +29,8 @@ The full method, numbers and limitations are in **[TECHNICAL_REPORT.md](TECHNICA
 | `src/summarize_genco.py`, `src/plot_genco.py` | Summary tables with bootstrap CIs, and figures |
 | `src/hybrid_mirage.py` | GENCO + 1–2 Newton–Raphson steps: Butterfly/Physics Lens re-test and headline figure |
 | `src/plot_schematic.py` | Workflow schematic (figure 1) |
+| `src/compare_checkpoints.py`, `run_all_checkpoints.sh` | Cross-checkpoint table/figure; reproduce all 8 runs |
+| `src/figstyle.py` | Shared figure style |
 | `src/compare_genco.py` | Generic equivariance/sensitivity metric on exported prediction arrays |
 | `src/ac_reference_mirage.py` | Mirror/Butterfly on the AC reference itself (IEEE 118 via pandapower), as a measurement floor |
 | `results/genco_n50/`, `results/genco_pilot8/` | Raw CSVs, summaries, figures, run metadata (scenario IDs, SHA-256 of checkpoint/config/stats, GraphKit commit), `pip freeze` |
@@ -42,7 +45,7 @@ FORCE_CUDA=0 pip install --no-build-isolation torch-scatter
 git clone --branch genco-paper-repro https://github.com/gridfm/gridfm-graphkit external-genco/gridfm-graphkit
 pip install -e external-genco/gridfm-graphkit           # tested at commit 4e7fbcf
 python src/fetch_genco_inputs.py --dest external-genco  # scenarios recorded in results/*/metadata.json
-VENV=.venv bash run_genco_mirage.sh                     # tests + 50-scenario run + summary + figures, ~11 min on 4 CPUs
+bash run_all_checkpoints.sh                              # all 8 checkpoints + comparison, < 2 h on 4 CPUs
 ```
 
 The 8-scenario pilot: `NUM_SAMPLES=8 OUT=results/genco_pilot8 bash run_genco_mirage.sh`.

@@ -38,7 +38,16 @@ def header(fig, title, subtitle, top=None):
     fig.text(0.012, 1 - 0.48 / h, subtitle, ha='left', va='top', fontsize=9.5, color=fs.INK2)
 
 
+def model_tag(d):
+    """'GENCO IEEE 118 base' from metadata (config file name)."""
+    meta = json.loads((d / 'metadata.json').read_text())
+    name = Path(meta['config']).stem  # e.g. case118_ieee_base_seed0
+    case, _, size, seed = name.split('_')
+    return f'GENCO {case.replace("case", "IEEE ")} {size}, {seed.replace("seed", "seed ")}', len(meta['scenarios'])
+
+
 def mirror_figure(d, summary):
+    tag, n = model_tag(d)
     fig, axes = plt.subplots(1, 4, figsize=(13, 3.3))
     for ax, (ch, name, unit) in zip(axes, CH):
         vals = [summary['mirror']['float64'][ch]['max'], summary['mirror']['float32'][ch]['max'],
@@ -60,14 +69,15 @@ def mirror_figure(d, summary):
         ax.set_title(name, fontsize=10)
         ax.set_xlabel(f'|deviation| [{unit}], log scale', fontsize=8.5)
         ax.set_xticks([1e-15, 1e-10, 1e-5, 1])
-    header(fig, 'Mirror: relabeling the grid does not change GENCO\'s answer',
-           '1,750 relabeled cases (50 test scenarios × 7 load levels × 5 relabelings). Deviation after mapping back '
+    header(fig, f'Mirror — {tag}: relabeling the grid does not change the answer',
+           f'{n * 35:,} relabeled cases ({n} test scenarios × 7 load levels × 5 relabelings). Deviation after mapping back '
            'to the original numbering, compared with GENCO\'s own error against the AC solution.', 0.80)
     fig.savefig(d / 'mirror.png')
     plt.close(fig)
 
 
 def butterfly_figure(d, summary, butterfly, physics, hybrid):
+    tag, n = model_tag(d)
     fig, ax = plt.subplots(2, 2, figsize=(11.5, 7.4))
     a, b, c, e = ax[0, 0], ax[0, 1], ax[1, 0], ax[1, 1]
 
@@ -81,8 +91,12 @@ def butterfly_figure(d, summary, butterfly, physics, hybrid):
         axis.axhline(0, color=fs.AXIS, lw=0.8, zorder=1)
         axis.plot(x, yr * scale, color=fs.REFERENCE, marker='o', label='AC physics (exact)', zorder=3)
         axis.plot(x, yg * scale, color=fs.ORANGE, marker='o', label='GENCO', zorder=4)
-        fs.end_label(axis, x[-1], yr[-1] * scale, 'physics', color=fs.INK2, dx=6)
-        fs.end_label(axis, x[-1], yg[-1] * scale, 'GENCO', color=fs.INK2, dx=6)
+        span = np.ptp(np.r_[yr, yg]) * scale or 1
+        if abs(yr[-1] - yg[-1]) * scale < 0.06 * span:
+            fs.end_label(axis, x[-1], yr[-1] * scale, 'GENCO ≈ physics', color=fs.INK2, dx=6)
+        else:
+            fs.end_label(axis, x[-1], yr[-1] * scale, 'physics', color=fs.INK2, dx=6)
+            fs.end_label(axis, x[-1], yg[-1] * scale, 'GENCO', color=fs.INK2, dx=6)
         axis.set_xlim(-1.15, 1.45)
         axis.set_xlabel('load change [%]')
         axis.set_ylabel(ylabel)
@@ -106,36 +120,49 @@ def butterfly_figure(d, summary, butterfly, physics, hybrid):
               ('Slack generation', np.array([np.mean(v) for v in slack.values()]))]
     rng = np.random.default_rng(0)
     c.axvline(1, color=fs.REFERENCE, lw=1.2, zorder=2)
-    c.text(1.005, 3.62, 'physics = 1', color=fs.INK2, fontsize=8.5, va='center')
+    c.annotate('physics = 1', (1, 3.62), xytext=(4, 0), textcoords='offset points', color=fs.INK2, fontsize=8.5, va='center')
     for i, (name, g) in enumerate(groups):
         yi = len(groups) - 1 - i
         c.scatter(g, yi + rng.uniform(-0.18, 0.18, g.size), s=22, color=fs.ORANGE, alpha=0.75,
                   edgecolor=fs.SURFACE, linewidth=0.6, zorder=3)
         c.plot([g.mean()] * 2, [yi - 0.3, yi + 0.3], color=fs.INK, lw=2, zorder=4)
-        c.text(1.005, yi, f'mean {g.mean():.2f}', va='center', fontsize=8.5, color=fs.INK2)
+        c.annotate(f'mean {g.mean():.2f}', (1.01, yi), xycoords=('axes fraction', 'data'), va='center',
+                   fontsize=8.5, color=fs.INK2)
     c.set_yticks(range(len(groups)))
     c.set_yticklabels([g[0] for g in groups][::-1])
-    c.set_xlim(0.45, 1.13)
+    allg = np.concatenate([g for _, g in groups])
+    c.set_xlim(min(0.45, allg.min() - 0.03), max(1.1, allg.max() + 0.03))
     c.set_ylim(-0.6, 3.9)
     c.grid(axis='y', visible=False)
     c.set_xlabel('response gain = GENCO change / true change  (one dot per scenario, n = 50)')
-    c.set_title('GENCO under-reacts in every scenario')
+    c.set_title('Response gain per scenario (1 = physics)')
 
     x, p = by_scale(physics, 'genco_p_residual_mw_pq_pv_mean')
     e.plot(x, p, color=fs.ORANGE, marker='o', zorder=3)
-    e.axhline(0.106, color=fs.MUTED, lw=1, zorder=2)
-    e.text(-1.1, 0.1075, 'published checkpoint metric 0.106 MW', color=fs.INK2, fontsize=8.5, va='bottom')
+    meta = json.loads((d / 'metadata.json').read_text())
+    pub = None
+    mfile = Path(meta['config']).parent / 'metrics.csv'
+    if mfile.exists():
+        for r in csv.reader(mfile.open()):
+            if r and r[0].startswith('Avg. active res'):
+                pub = float(r[1])
+    if pub is not None:
+        e.axhline(pub, color=fs.MUTED, lw=1, zorder=2)
+        e.annotate(f'published checkpoint metric {pub:.3g} MW', (-1.1, pub), xytext=(0, 3),
+                   textcoords='offset points', color=fs.INK2, fontsize=8.5, va='bottom')
     for xi, pi in zip(x, p):
         if abs(xi) in (0, 1):
-            e.annotate(f'{pi:.3f}', (xi, pi), xytext=(0, 8), textcoords='offset points', ha='center',
+            e.annotate(f'{pi:.3g}', (xi, pi), xytext=(0, 8), textcoords='offset points', ha='center',
                        fontsize=8.5, color=fs.INK2)
-    e.set_ylim(0, max(p) * 1.25)
+    e.set_ylim(0, max(max(p), pub or 0) * 1.3)
     e.set_xlim(-1.15, 1.15)
     e.set_xlabel('load change [%]')
     e.set_ylabel('mean |ΔP| at PQ + PV buses [MW]')
     e.set_title('Physics Lens: power-balance residual of GENCO')
-    header(fig, 'Butterfly: GENCO moves the grid only ~3/4 as far as the physics does',
-           '50 official test scenarios, uniform demand change of ±0.1 … ±1 %; reference = exact AC Newton–Raphson '
+    gvm = summary['butterfly']['per_scenario_vm']['mean']
+    gva = summary['butterfly']['per_scenario_va']['mean']
+    header(fig, f'Butterfly — {tag}: response gain {gvm:.2f} (voltage magnitude), {gva:.2f} (angle) of the physics',
+           f'{n} official test scenarios, uniform demand change of ±0.1 … ±1 %; reference = exact AC Newton–Raphson '
            'solution of the same input.', 0.90)
     fig.savefig(d / 'butterfly_physics.png')
     plt.close(fig)
