@@ -32,7 +32,7 @@ def main(out):
         (0.72, 'MIRROR', 'Relabel buses, generators\nand branches (same physics)', 'GENCO → map back\nto original order',
          '✔  Same answer, all 8\n≤2e-14 in float64;\nfloat32 spread = round-off', BLUE, GREEN),
         (0.40, 'BUTTERFLY', 'Scale all demand\n±0.1 … ±1 %', 'GENCO vs exact\nAC Newton–Raphson',
-         'IEEE 14:  ✔ ≈ 0.99×\nIEEE 118: ✘ 0.71–0.87×\nlarger models lower', ORANGE, RED),
+         'IEEE 14:  ✔ ≈ 0.99×\nIEEE 118: ✘ 0.71–0.89×\nlarger models lower', ORANGE, RED),
         (0.08, 'PHYSICS LENS', 'Use predicted\nVm, Va, Pg, Qg', 'AC nodal balance on\nnon-enforced quantities',
          'Residual close to each\npublished metric;\ngrows with |Δload|', AQUA, GREY),
     ]

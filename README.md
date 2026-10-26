@@ -25,7 +25,7 @@ The full method, numbers and limitations are in **[TECHNICAL_REPORT.md](TECHNICA
 |---|---|
 | `src/genco_mirage.py` | Runs real GENCO inference on relabeled and load-perturbed scenarios, plus the AC reference and Physics Lens |
 | `src/acgrid.py` | Independent AC Newton–Raphson, Y-bus from GraphKit edge admittances, nodal residuals, consistent relabeling (numpy only) |
-| `src/fetch_genco_inputs.py` | Downloads the checkpoint and only the dataset partitions needed (~1 GB instead of 3.7 GB) |
+| `src/fetch_genco_inputs.py` | Downloads the 8 checkpoints, the IEEE 14 dataset and only the needed IEEE 118 partitions (~1.3 GB instead of 4 GB) |
 | `src/summarize_genco.py`, `src/plot_genco.py` | Summary tables with bootstrap CIs, and figures |
 | `src/hybrid_mirage.py` | GENCO + 1–2 Newton–Raphson steps: Butterfly/Physics Lens re-test and headline figure |
 | `src/plot_schematic.py` | Workflow schematic (figure 1) |
