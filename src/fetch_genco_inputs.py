@@ -1,6 +1,6 @@
 """Download exactly the GENCO inputs GRID MIRAGE needs (never the full 3.7 GB IEEE 118 dataset).
 
-checkpoints: gridfm/genco-pf-datakit  case{14,118}_ieee/{tiny,small,base}/seed0
+checkpoints: gridfm/genco-pf-datakit  case{14,118}_ieee/{tiny,small,base}/seed0 + case118_ieee/{tiny,base}/seed1
 IEEE 14:  gridfm/pf_small_case14_ieee  @ pinned revision, bus/gen/branch tables (~0.3 GB)
 IEEE 118: gridfm/pf_small_case118_ieee @ pinned revision, all bus_data partitions (~0.8 GB,
           needed to replicate the official split) + only the gen/branch partitions holding the
@@ -34,7 +34,7 @@ def main():
     ap.add_argument('--scenarios', type=int, nargs='+', help='IEEE 118 scenario ids (default: all recorded in results/)')
     a = ap.parse_args()
     snapshot_download('gridfm/genco-pf-datakit', local_dir=f'{a.dest}/genco-pf-datakit',
-                      allow_patterns=[f'{c}_ieee/{s}/seed0/*' for c in a.cases for s in a.sizes] + ['README.md'])
+                      allow_patterns=([f'{c}_ieee/{s}/seed0/*' for c in a.cases for s in a.sizes]\n                      + ([f'case118_ieee/{s}/seed1/*' for s in ('tiny', 'base') if s in a.sizes]\n                         if 'case118' in a.cases else []) + ['README.md']))
     if 'case14' in a.cases:
         snapshot_download('gridfm/pf_small_case14_ieee', repo_type='dataset', revision=REVISION['case14'],
                           allow_patterns=TABLES + [f'{t}_data.parquet/*' for t in ('bus', 'gen', 'branch')],
